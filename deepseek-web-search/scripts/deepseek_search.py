@@ -3,12 +3,52 @@
 import argparse
 import json
 import os
+import socket
 import sys
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 BASE_URL = "https://api.deepseek.com/v1/tools/"
+CONTENT_LIMIT = 2000
+
+
+class NoRedirectHandler(HTTPRedirectHandler):
+    """Never forward the API key in an HTTP redirect."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def compact_search(result):
+    """Return a smaller search response while flagging truncated content."""
+    items = []
+    for item in result["results"]:
+        entry = {key: item.get(key) for key in ("title", "url", "snippet", "date")}
+        content = item.get("content")
+        if content:
+            entry["content"] = content[:CONTENT_LIMIT]
+            entry["content_truncated"] = len(content) > CONTENT_LIMIT
+        items.append(entry)
+    return {"results": items}
+
+
+def http_error_message(code):
+    if 300 <= code < 400:
+        return "API redirect refused; check the official endpoint and try again."
+    messages = {
+        400: "Invalid request; check the query, URL, and parameters.",
+        401: "Invalid or missing API key; check the configured key.",
+        402: "Insufficient account balance; check the DeepSeek account.",
+        403: "Request rejected by the API security policy.",
+        404: "Page unavailable or no extractable content; check the target URL.",
+        408: "Request timed out; retry later.",
+        413: "Request body too large; reduce the input.",
+        429: "Rate limit exceeded; wait before retrying.",
+    }
+    if code >= 500:
+        return "DeepSeek service error; retry later."
+    return messages.get(code, "Request failed; check the API documentation.")
 
 
 def main():
@@ -18,6 +58,7 @@ def main():
     search.add_argument("query")
     search.add_argument("--count", type=int, default=10)
     search.add_argument("--need-content", action="store_true")
+    search.add_argument("--compact", action="store_true", help="Return fewer fields and limit each page's content to 2000 characters")
     search.add_argument("--original-question")
     search.add_argument("--localization")
     fetch = commands.add_parser("fetch", help="Fetch one web page")
@@ -54,14 +95,30 @@ def main():
     request = Request(BASE_URL + args.command, data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
                       headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"}, method="POST")
     try:
-        with urlopen(request, timeout=60) as response:
+        with build_opener(NoRedirectHandler()).open(request, timeout=60) as response:
             result = json.load(response)
     except HTTPError as exc:
-        print(f"DeepSeek {args.command} failed with HTTP {exc.code}.", file=sys.stderr)
+        print(f"DeepSeek {args.command} failed with HTTP {exc.code}: {http_error_message(exc.code)}", file=sys.stderr)
+        exc.close()
         return 1
-    except (URLError, TimeoutError, OSError, ValueError) as exc:
-        print(f"DeepSeek {args.command} failed: {type(exc).__name__}.", file=sys.stderr)
+    except (TimeoutError, socket.timeout):
+        print(f"DeepSeek {args.command} timed out; retry later.", file=sys.stderr)
         return 1
+    except URLError as exc:
+        if isinstance(exc.reason, (TimeoutError, socket.timeout)):
+            print(f"DeepSeek {args.command} timed out; retry later.", file=sys.stderr)
+        else:
+            print(f"DeepSeek {args.command} network error; check connectivity and retry later.", file=sys.stderr)
+        return 1
+    except (OSError, ValueError):
+        print(f"DeepSeek {args.command} failed: unreadable response or connection error.", file=sys.stderr)
+        return 1
+    if args.command == "search" and args.compact:
+        try:
+            result = compact_search(result)
+        except (KeyError, TypeError):
+            print("DeepSeek search failed: unexpected response format.", file=sys.stderr)
+            return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0
 
