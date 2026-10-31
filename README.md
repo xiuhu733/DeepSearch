@@ -1,26 +1,42 @@
 # DeepSearch
 
-一个通过 DeepSeek Search / Fetch API 搜索网页和抓取正文的 Codex skill。使用 Python 3 标准库，无需安装第三方依赖。
+一个通过 DeepSeek Search / Fetch API 搜索网页和抓取正文的 [Agent Skills](https://agentskills.io/specification) 技能。使用 Python 3 标准库，无需安装第三方依赖。
 
 ## 安装
 
-将 `deepseek-web-search` 目录复制到 `~/.codex/skills/`：
+在仓库目录执行安装命令，选择一个或多个目标：
 
 ```bash
-mkdir -p ~/.codex/skills
-cp -R deepseek-web-search ~/.codex/skills/
+python3 install.py --agent codex
+python3 install.py --agent claude
+python3 install.py --agent gemini
+python3 install.py --agent opencode
+python3 install.py --agent copilot
+python3 install.py --agent agents
 ```
+
+`agents` 安装到 `~/.agents/skills/`，是部分智能体支持的共享目录。安装器默认保留已有但内容不同的同名技能；确认需要替换时可使用 `--force`。具体选项见 `python3 install.py --help`。
+
+| 目标 | 用户级技能目录 | 参考文档 |
+| --- | --- | --- |
+| Codex | `~/.codex/skills/`，或 `$CODEX_HOME/skills/` | [Codex skills](https://developers.openai.com/codex/skills/) |
+| Claude Code | `~/.claude/skills/` | [Claude Code skills](https://code.claude.com/docs/en/skills) |
+| Gemini CLI | `~/.gemini/skills/` 或 `~/.agents/skills/` | [Gemini CLI skills](https://geminicli.com/docs/cli/skills/) |
+| OpenCode | `~/.config/opencode/skills/`、`~/.claude/skills/` 或 `~/.agents/skills/` | [OpenCode skills](https://opencode.ai/docs/skills/) |
+| GitHub Copilot | `~/.copilot/skills/` 或 `~/.agents/skills/`，具体支持因客户端而异 | [Copilot agent skills](https://docs.github.com/en/copilot/concepts/agents/about-agent-skills) |
 
 配置 DeepSeek API Key：设置环境变量 `DEEPSEEK_API_KEY`，或者将 Key 存放在 `~/.config/deepseek/api_key` 并将文件权限设为 `600`。环境变量优先。请勿将 Key 提交到仓库。
 
-在 Codex 中调用 `$deepseek-web-search`，或者要求使用 DeepSeek 搜索。新安装后如未识别，可以开启新会话。
+请智能体使用 `deepseek-web-search`，或在支持显式调用技能的客户端中选择它。新安装的技能可能需要新建会话或刷新技能列表。Gemini CLI 可使用 `/skills reload`。客户端是否自动启用技能，也取决于其配置和权限。
 
 ## 命令行使用
 
+在仓库根目录可以直接运行以下命令；从其他位置运行时，将路径替换为技能目录的实际位置。
+
 ```bash
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_search.py search "DeepSeek API" --count 5 --need-content
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_search.py search "DeepSeek API" --count 5 --compact
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_search.py fetch "https://api-docs.deepseek.com/zh-cn/guides/search"
+python3 deepseek-web-search/scripts/deepseek_search.py search "DeepSeek API" --count 5 --need-content
+python3 deepseek-web-search/scripts/deepseek_search.py search "DeepSeek API" --count 5 --compact
+python3 deepseek-web-search/scripts/deepseek_search.py fetch "https://api-docs.deepseek.com/zh-cn/guides/search"
 ```
 
 搜索结果包含摘要和来源链接，可按需请求正文。抓取结果取决于目标网站的可访问性。搜索摘要和排序分数不能代替查阅原文。
@@ -32,7 +48,7 @@ python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_search.py fetch "ht
 批量搜索接收调用方指定的查询，不预设查询数量或搜索策略。模型可以根据任务决定查询词、请求数量、是否取正文，以及是否继续搜索；实际返回数量可能少于请求数量。原始结果保存在本地，合并后按 URL 去重，并分批输出候选供模型筛选。例如：
 
 ```bash
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_batch.py \
+python3 deepseek-web-search/scripts/deepseek_batch.py \
   --query "searchable encryption leakage attacks" \
   --query "SSE query recovery attack" \
   --need-content \
@@ -51,6 +67,4 @@ python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_batch.py \
 python3 -m unittest discover -s tests -v
 ```
 
-测试使用模拟响应，不需要 API Key，不发起网络请求。
-
-Search 和 Fetch 可能产生调用费用；当前接口参数、计费与限速以 [DeepSeek 官方文档](https://api-docs.deepseek.com/zh-cn/guides/search)为准。
+测试使用模拟响应，不需要 API Key，不发起网络请求。Search 和 Fetch 可能产生调用费用；当前接口参数、计费与限速以 [DeepSeek 官方文档](https://api-docs.deepseek.com/zh-cn/guides/search)为准。

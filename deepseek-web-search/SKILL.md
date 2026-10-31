@@ -5,11 +5,11 @@ description: Search the web or fetch a page using DeepSeek's Search and Fetch AP
 
 # DeepSeek Web Search
 
-Use the bundled Python 3 script to query the official DeepSeek API. It prints the API's JSON response to stdout. Resolve the script relative to this skill's directory.
+Use the bundled Python 3 script to query the official DeepSeek API. It prints the API's JSON response to stdout. Resolve `scripts/deepseek_search.py` and `scripts/deepseek_batch.py` relative to the directory containing this `SKILL.md`, using the actual skill path provided by the host. In the examples below, set `SKILL_DIR` to that absolute directory first; do not assume the host sets it or that the shell runs from the skill directory.
 
 ```bash
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_search.py search "search terms" --count 10 --compact
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_search.py fetch "https://example.com/article"
+python3 "$SKILL_DIR/scripts/deepseek_search.py" search "search terms" --count 10 --compact
+python3 "$SKILL_DIR/scripts/deepseek_search.py" fetch "https://example.com/article"
 ```
 
 The scripts read `DEEPSEEK_API_KEY` first, then `~/.config/deepseek/api_key`. Never print keys or place them in command arguments. If no key is available, explain how to configure it; do not silently change providers. Search and fetch send queries and URLs to DeepSeek and may incur charges. When the user asks for a DeepSeek search, ordinary requests needed for that task are within scope; keep the number proportionate to the task.
@@ -19,7 +19,7 @@ The scripts read `DEEPSEEK_API_KEY` first, then `~/.config/deepseek/api_key`. Ne
 For a broad search, determine the queries, result count, whether to request content, caching, and whether to run additional rounds based on the user's objective, available results, freshness needs, and budget. The batch script accepts caller-supplied queries; it does not select queries or dictate a search strategy. Each uncached query can incur one Search charge, and the number of results returned may be smaller than requested. `--need-content` requests available page text in the original responses, which remain on disk rather than flooding the model context.
 
 ```bash
-python3 ~/.codex/skills/deepseek-web-search/scripts/deepseek_batch.py \
+python3 "$SKILL_DIR/scripts/deepseek_batch.py" \
   --query "searchable encryption leakage attacks" \
   --query "SSE query recovery attack" \
   --need-content --output-dir "$HOME/.cache/deepseek-web-search/example"
